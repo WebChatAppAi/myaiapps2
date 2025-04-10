@@ -1,0 +1,77 @@
+# ------------------------
+# Flutter & Dart
+# ------------------------
+.dart_tool/
+.packages
+.pub/
+build/
+flutter_*.png
+.flutter-plugins
+.flutter-plugins-dependencies
+.flutter-versions
+.flutter-settings
+
+# Pub cache (if you ever vendor it)
+.pub-cache/
+
+# ------------------------
+# Platform‑specific build artifacts
+# ------------------------
+# Android
+android/.gradle/
+android/local.properties
+android/app/*.keystore
+*.jks
+*.apk
+*.aar
+
+# iOS & macOS
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/Flutter/Generated.xcconfig
+ios/Flutter/app.flx
+ios/Flutter/ephemeral/
+ios/Pods/
+ios/.symlinks/
+ios/Runner.xcworkspace/
+ios/Runner.xcodeproj/project.xcworkspace/xcshareddata/WorkspaceSettings.xcsettings
+macos/Pods/
+macos/.symlinks/
+macos/Flutter/ephemeral/
+
+# Windows & Linux
+windows/runner/Debug/
+windows/runner/Release/
+linux/flutter/ephemeral/
+
+# Web
+web/.dart_tool/
+
+# ------------------------
+# IDEs & tooling
+# ------------------------
+.idea/
+.vscode/
+*.iml
+.history/          # VS Code extension “Local History”
+
+# ------------------------
+# Xcode
+*.xcworkspace
+*.xcuserstate
+*.xcuserdata
+DerivedData/
+
+# ------------------------
+# Miscellaneous
+# ------------------------
+# Secrets
+ios/GoogleService-Info.plist
+android/app/google-services.json
+
+# Logs & temporary
+*.log
+*.tmp
+*.lock
+*.DS_Store
+Thumbs.db

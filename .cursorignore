@@ -1,0 +1,15 @@
+
+# Add directories or file patterns to ignore during indexing (e.g. foo/ or *.csv)
+.dart_tool/
+.idea/
+.vscode/
+.gitignore
+.git/
+.gitignore
+build/
+windows/
+linux/
+macos/
+ios/
+android/
+pubspec.yaml
