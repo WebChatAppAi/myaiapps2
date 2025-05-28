@@ -29,7 +29,7 @@ void main() {
   );
 
   // Initialize Gemini
-  const geminiApiKey = 'AIzaSyCYzjuFXko9kKniCB0wWfvLqxJAGcuuI4w';
+  const geminiApiKey = 'APIKEY_HERE';
   Gemini.init(apiKey: geminiApiKey, enableDebugging: false);
 
   runApp(
