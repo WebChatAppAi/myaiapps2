@@ -24,7 +24,7 @@ class AIService {
   Stream<String>? _reasoningStream;
 
   // Gemini API key - replace with your actual key
-  static const String _geminiApiKey = 'APIKEY_HERE';
+  static const String _geminiApiKey = 'ADD_APIKEY_HER';
 
   // Fallback Gemini model names (used only if API fetch fails)
   static const List<String> fallbackGeminiModels = [
