@@ -76,10 +76,9 @@ class _ImageGenerationScreenState extends State<ImageGenerationScreen> {
                   // Center Logo (Navigate to Chat)
                   GestureDetector(
                     onTap: () {
-                      Navigator.of(context).pushReplacement(
-                        MaterialPageRoute(
-                          builder: (context) => ChatListScreen(),
-                        ),
+                      AppNavigator.pushReplacement(
+                        context,
+                        const ChatListScreen(),
                       );
                     },
                     child: Container(

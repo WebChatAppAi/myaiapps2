@@ -1,0 +1,2 @@
+C:/Users/Alvan/Documents/00All_WebCha_WebAPP2025/myaiapps2/android/app/.cxx/Debug/623r4121/armeabi-v7a/CMakeFiles/edit_cache.dir
+C:/Users/Alvan/Documents/00All_WebCha_WebAPP2025/myaiapps2/android/app/.cxx/Debug/623r4121/armeabi-v7a/CMakeFiles/rebuild_cache.dir

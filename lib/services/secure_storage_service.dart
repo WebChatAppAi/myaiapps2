@@ -8,6 +8,7 @@ class SecureStorageService {
   static const String _baseUrlKey = 'openai_base_url';
   static const String _apiKeyKey = 'openai_api_key';
   static const String _selectedModelKey = 'selected_model';
+  static const String _modelTypeKey = 'model_type';
   static const String _isConnectedKey = 'is_connected';
   static const String _migratedKey = 'secure_storage_migrated';
 
@@ -35,6 +36,11 @@ class SecureStorageService {
     return prefs.getString(_selectedModelKey);
   }
 
+  static Future<String?> getModelType() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_modelTypeKey);
+  }
+
   static Future<bool> getIsConnected() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(_isConnectedKey) ?? false;
@@ -43,6 +49,11 @@ class SecureStorageService {
   static Future<void> setSelectedModel(String value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_selectedModelKey, value);
+  }
+
+  static Future<void> setModelType(String value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_modelTypeKey, value);
   }
 
   static Future<void> setIsConnected(bool value) async {

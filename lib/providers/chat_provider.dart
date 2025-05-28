@@ -2,8 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/material.dart';
 import '../models/chat_message.dart';
 import 'settings_provider.dart';
+import '../utils/toast_utils.dart';
+import '../utils/navigator_key.dart';
 
 class ChatState {
   final List<ChatMessage> messages;
@@ -11,6 +14,7 @@ class ChatState {
   final String? error;
   final bool isStreaming;
   final String? streamError;
+  final String? currentReasoning;
 
   ChatState({
     List<ChatMessage>? messages,
@@ -18,6 +22,7 @@ class ChatState {
     this.error,
     this.isStreaming = false,
     this.streamError,
+    this.currentReasoning,
   }) : messages = messages ?? [];
 
   ChatState copyWith({
@@ -26,6 +31,7 @@ class ChatState {
     String? error,
     bool? isStreaming,
     String? streamError,
+    String? currentReasoning,
   }) {
     return ChatState(
       messages: messages ?? this.messages,
@@ -33,6 +39,7 @@ class ChatState {
       error: error,
       isStreaming: isStreaming ?? this.isStreaming,
       streamError: streamError,
+      currentReasoning: currentReasoning,
     );
   }
 }
@@ -45,10 +52,14 @@ class ChatNotifier extends StateNotifier<ChatState> {
   final Ref ref;
   static const String _messagesKey = 'chat_messages';
   StreamSubscription? _streamSubscription;
+  StreamSubscription? _reasoningSubscription;
+  List<Map<String, String>> _conversationHistory = [];
+  String _currentReasoning = '';
 
   @override
   void dispose() {
     _streamSubscription?.cancel();
+    _reasoningSubscription?.cancel();
     super.dispose();
   }
 
@@ -84,11 +95,13 @@ class ChatNotifier extends StateNotifier<ChatState> {
     if (content.trim().isEmpty) return;
 
     final settings = ref.read(settingsProvider);
-    if (settings.baseUrl.isEmpty ||
-        settings.apiKey.isEmpty ||
-        settings.selectedModel.isEmpty) {
+    if (settings.selectedModel.isEmpty) {
       state = state.copyWith(
-        error: 'Please configure API settings and select a model first',
+        error: 'Please select a model first',
+      );      // Show error toast
+      ToastUtils.showErrorToast(
+        navigatorKey.currentContext,
+        'Connection failed: Please select a model first',
       );
       return;
     }
@@ -96,6 +109,9 @@ class ChatNotifier extends StateNotifier<ChatState> {
     // Cancel any existing stream
     await _streamSubscription?.cancel();
     _streamSubscription = null;
+    await _reasoningSubscription?.cancel();
+    _reasoningSubscription = null;
+    _currentReasoning = '';
 
     // Add user message
     final userMessage = ChatMessage(
@@ -116,12 +132,33 @@ class ChatNotifier extends StateNotifier<ChatState> {
       isStreaming: true,
       error: null,
       streamError: null,
+      currentReasoning: null,
+    );    // Show success toast for message sent
+    ToastUtils.showSuccessToast(
+      navigatorKey.currentContext,
+      'Message sent',
     );
 
     try {
       final aiService = ref.read(settingsProvider.notifier).aiService;
-      final stream =
-          await aiService.streamChat(content, settings.selectedModel);
+      final stream = await aiService.streamChatWithHistory(
+          content, settings.selectedModel, _conversationHistory);
+
+      // Subscribe to the reasoning stream if available
+      final reasoningStream = aiService.reasoningStream;
+      if (reasoningStream != null) {
+        _reasoningSubscription = reasoningStream.listen(
+          (reasoning) {
+            _currentReasoning += reasoning;
+            state = state.copyWith(
+              currentReasoning: _currentReasoning,
+            );
+          },
+          onError: (error) {
+            print('Reasoning stream error: $error');
+          },
+        );
+      }
 
       String responseContent = '';
 
@@ -133,6 +170,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
           final updatedMessages = [...state.messages];
           updatedMessages[updatedMessages.length - 1] = aiMessage.copyWith(
             content: responseContent,
+            reasoning: _currentReasoning.isNotEmpty ? _currentReasoning : null,
           );
 
           state = state.copyWith(
@@ -149,6 +187,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
             status: MessageStatus.error,
             errorMessage: error.toString(),
             isStreaming: false,
+            reasoning: _currentReasoning.isNotEmpty ? _currentReasoning : null,
           );
 
           state = state.copyWith(
@@ -157,6 +196,14 @@ class ChatNotifier extends StateNotifier<ChatState> {
             isStreaming: false,
             streamError: error.toString(),
           );
+
+          // Cancel reasoning subscription
+          _reasoningSubscription?.cancel();
+          _reasoningSubscription = null;          // Show error toast
+          ToastUtils.showErrorToast(
+            navigatorKey.currentContext,
+            'Error: $error',
+          );
         },
         onDone: () {
           final updatedMessages = [...state.messages];
@@ -164,13 +211,24 @@ class ChatNotifier extends StateNotifier<ChatState> {
             content: responseContent,
             isStreaming: false,
             status: MessageStatus.sent,
+            reasoning: _currentReasoning.isNotEmpty ? _currentReasoning : null,
           );
+
+          // Update conversation history with the new messages
+          _conversationHistory.add({"role": "user", "parts": content});
+          _conversationHistory.add({"role": "model", "parts": responseContent});
 
           state = state.copyWith(
             messages: updatedMessages,
             isLoading: false,
             isStreaming: false,
+            currentReasoning:
+                _currentReasoning.isNotEmpty ? _currentReasoning : null,
           );
+
+          // Cancel reasoning subscription
+          _reasoningSubscription?.cancel();
+          _reasoningSubscription = null;
 
           _saveMessages();
         },
@@ -191,6 +249,15 @@ class ChatNotifier extends StateNotifier<ChatState> {
         isLoading: false,
         isStreaming: false,
         error: e.toString(),
+        currentReasoning: null,
+      );
+
+      // Cancel reasoning subscription
+      _reasoningSubscription?.cancel();
+      _reasoningSubscription = null;      // Show error toast
+      ToastUtils.showErrorToast(
+        navigatorKey.currentContext,
+        'Failed to send message: $e',
       );
     }
   }
@@ -198,10 +265,19 @@ class ChatNotifier extends StateNotifier<ChatState> {
   void clearChat() async {
     await _streamSubscription?.cancel();
     _streamSubscription = null;
+    await _reasoningSubscription?.cancel();
+    _reasoningSubscription = null;
+    _currentReasoning = '';
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_messagesKey);
-    state = ChatState();
+    // Clear conversation history when starting a new chat
+    _conversationHistory = [];
+    state = ChatState();    // Show info toast
+    ToastUtils.showInfoToast(
+      navigatorKey.currentContext,
+      'New chat started',
+    );
   }
 }
 

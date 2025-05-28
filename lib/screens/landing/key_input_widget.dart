@@ -5,10 +5,12 @@ import '../../theme/colors.dart';
 
 class KeyInputWidget extends StatefulWidget {
   final Function(String) onKeySubmitted;
+  final bool isLoading;
 
   const KeyInputWidget({
     Key? key,
     required this.onKeySubmitted,
+    this.isLoading = false,
   }) : super(key: key);
 
   @override
@@ -21,12 +23,10 @@ class _KeyInputWidgetState extends State<KeyInputWidget> {
   bool _isSuccess = false;
 
   void _validateKey() {
+    if (widget.isLoading) return;
+
     final key = _keyController.text.trim();
-    if (key == AppConstants.validAccessKey) {
-      setState(() {
-        _isError = false;
-        _isSuccess = true;
-      });
+    if (key.isNotEmpty) {
       widget.onKeySubmitted(key);
     } else {
       setState(() {
@@ -42,6 +42,7 @@ class _KeyInputWidgetState extends State<KeyInputWidget> {
       duration: AppConstants.mediumAnimation,
       child: TextField(
         controller: _keyController,
+        enabled: !widget.isLoading,
         decoration: InputDecoration(
           hintText: 'Enter access key',
           hintStyle: TextStyle(
@@ -56,15 +57,26 @@ class _KeyInputWidgetState extends State<KeyInputWidget> {
                     ? AppColors.success
                     : Colors.white.withOpacity(0.5),
           ),
-          suffixIcon: IconButton(
-            icon: Icon(
-              _isSuccess ? Icons.check_circle : Icons.arrow_forward,
-              color: _isSuccess
-                  ? AppColors.success
-                  : Colors.white.withOpacity(0.7),
-            ),
-            onPressed: _validateKey,
-          ),
+          suffixIcon: widget.isLoading
+              ? SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Colors.white.withOpacity(0.7),
+                    ),
+                  ),
+                )
+              : IconButton(
+                  icon: Icon(
+                    _isSuccess ? Icons.check_circle : Icons.arrow_forward,
+                    color: _isSuccess
+                        ? AppColors.success
+                        : Colors.white.withOpacity(0.7),
+                  ),
+                  onPressed: _validateKey,
+                ),
           errorText: _isError ? AppConstants.invalidKeyError : null,
           errorStyle: TextStyle(color: AppColors.error),
           filled: true,

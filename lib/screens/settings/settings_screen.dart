@@ -19,16 +19,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _isLoading = false;
   String? _selectedModel;
   bool _hasUnsavedChanges = false;
+  bool _showAdvancedSettings = false;
 
   @override
   void initState() {
     super.initState();
     _initializeControllers();
-    // Only load models if we have base URL and API key
-    if (_baseUrlController.text.isNotEmpty &&
-        _apiKeyController.text.isNotEmpty) {
-      _loadAvailableModels();
-    }
+    // Load models regardless of base URL and API key for Gemini support
+    _loadAvailableModels();
   }
 
   void _initializeControllers() {
@@ -41,9 +39,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _loadAvailableModels() async {
-    if (_baseUrlController.text.isEmpty || _apiKeyController.text.isEmpty) {
-      return;
-    }
+    setState(() => _isLoading = true);
 
     final models =
         await ref.read(settingsProvider.notifier).fetchAvailableModels();
@@ -51,8 +47,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (mounted) {
       setState(() {
         _availableModels = models;
-        if (_selectedModel?.isEmpty ?? true) {
-          _selectedModel = models.isNotEmpty ? models.first : null;
+        _isLoading = false;
+
+        // Check if the current selected model is in the available models list
+        final isSelectedModelValid =
+            _selectedModel != null && models.contains(_selectedModel);
+
+        if (!isSelectedModelValid) {
+          // Default to gemini-pro if available
+          final defaultModel = models.contains('gemini-pro')
+              ? 'gemini-pro'
+              : (models.isNotEmpty ? models.first : null);
+          _selectedModel = defaultModel;
           _hasUnsavedChanges = true;
         }
       });
@@ -121,13 +127,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           }
         });
 
+        // Count Gemini models
+        final geminiModelsCount =
+            models.where((m) => m.toLowerCase().contains('gemini')).length;
+
         // Show appropriate message
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               models.isEmpty
                   ? 'No models available'
-                  : 'Successfully fetched ${models.length} models',
+                  : 'Found ${models.length} models (including $geminiModelsCount Gemini models)',
               style: TextStyle(color: AppColors.textColor),
             ),
             backgroundColor: models.isEmpty ? Colors.red : Colors.green,
@@ -156,28 +166,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Future<void> _saveSettings() async {
     if (!_hasUnsavedChanges) return;
 
-    if (_baseUrlController.text.isEmpty || _apiKeyController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Please enter both Base URL and API Key',
-            style: TextStyle(color: AppColors.textColor),
-          ),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
     setState(() => _isLoading = true);
     try {
-      // Save base URL and API key
-      await ref
-          .read(settingsProvider.notifier)
-          .setBaseUrl(_baseUrlController.text);
-      await ref
-          .read(settingsProvider.notifier)
-          .setApiKey(_apiKeyController.text);
+      // Save base URL and API key (only if advanced settings are shown)
+      if (_showAdvancedSettings) {
+        await ref
+            .read(settingsProvider.notifier)
+            .setBaseUrl(_baseUrlController.text);
+        await ref
+            .read(settingsProvider.notifier)
+            .setApiKey(_apiKeyController.text);
+      }
 
       // Save selected model if available
       if (_selectedModel != null && _selectedModel!.isNotEmpty) {
@@ -304,64 +303,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ],
                   ),
 
-                  // OpenAI Configuration Section
-                  _buildSection(
-                    title: 'API Configuration',
-                    children: [
-                      _buildInputTile(
-                        'Base URL',
-                        'Enter your API endpoint (e.g., https://api.openai.com)',
-                        controller: _baseUrlController,
-                        icon: Icons.link,
-                        onChanged: (value) {
-                          setState(() => _hasUnsavedChanges = true);
-                        },
-                      ),
-                      _buildInputTile(
-                        'API Key',
-                        'Enter your API key',
-                        controller: _apiKeyController,
-                        icon: Icons.key,
-                        isSecret: true,
-                        onChanged: (value) {
-                          setState(() => _hasUnsavedChanges = true);
-                        },
-                      ),
-                      _buildActionButton(
-                        'Check Models',
-                        icon: _isLoading ? null : Icons.refresh,
-                        onPressed: _isLoading ? () {} : _checkModels,
-                        child: _isLoading
-                            ? SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    AppColors.accentBlue,
-                                  ),
-                                ),
-                              )
-                            : null,
-                      ),
-                      if (settings.lastConnectionMessage.isNotEmpty)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 8),
-                          child: Text(
-                            settings.lastConnectionMessage,
-                            style: TextStyle(
-                              color: settings.isConnected
-                                  ? Colors.green
-                                  : Colors.red,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-
-                  // Model Selection Section
+                  // Model Selection Section (Moved up since it's more important now)
                   if (_availableModels.isNotEmpty) ...[
                     _buildSection(
                       title: 'Model Selection',
@@ -370,7 +312,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           'AI Model',
                           'Select a Model',
                           icon: Icons.auto_awesome,
-                          value: _selectedModel ?? '',
+                          value: (_selectedModel != null &&
+                                  _availableModels.contains(_selectedModel))
+                              ? _selectedModel!
+                              : (_availableModels.isNotEmpty
+                                  ? _availableModels.first
+                                  : ''),
                           items: _availableModels,
                           onChanged: (value) {
                             if (value != null) {
@@ -381,9 +328,150 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             }
                           },
                         ),
+                        // Informational text about model sources
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
+                          child: Text(
+                            _availableModels.any(
+                                    (m) => m.toLowerCase().contains('gemini'))
+                                ? 'Models include built-in Gemini AI models'
+                                : 'Only configured OpenAI models are available',
+                            style: TextStyle(
+                              color: AppColors.textColor.withOpacity(0.6),
+                              fontSize: 12,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ),
+                        _buildActionButton(
+                          'Check Models',
+                          icon: _isLoading ? null : Icons.refresh,
+                          onPressed: _isLoading ? () {} : _checkModels,
+                          child: _isLoading
+                              ? SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      AppColors.accentBlue,
+                                    ),
+                                  ),
+                                )
+                              : null,
+                        ),
                       ],
                     ),
                   ],
+
+                  // Loading indicator when no models are loaded yet
+                  if (_availableModels.isEmpty && _isLoading) ...[
+                    _buildSection(
+                      title: 'Model Selection',
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(24),
+                          alignment: Alignment.center,
+                          child: Column(
+                            children: [
+                              CircularProgressIndicator(
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  AppColors.accentBlue,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Fetching available AI models...',
+                                style: TextStyle(
+                                  color: AppColors.textColor,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+
+                  // Advanced Settings Toggle
+                  _buildSection(
+                    title: 'Advanced Settings',
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.settings,
+                              color: AppColors.textColor.withOpacity(0.7),
+                              size: 24,
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              'Show OpenAI Configuration',
+                              style: TextStyle(
+                                color: AppColors.textColor,
+                                fontSize: 16,
+                              ),
+                            ),
+                            const Spacer(),
+                            Switch(
+                              value: _showAdvancedSettings,
+                              onChanged: (value) {
+                                setState(() {
+                                  _showAdvancedSettings = value;
+                                });
+                              },
+                              activeColor: AppColors.accentBlue,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  // OpenAI Configuration Section (Conditionally visible)
+                  if (_showAdvancedSettings)
+                    _buildSection(
+                      title: 'OpenAI Configuration',
+                      children: [
+                        _buildInputTile(
+                          'Base URL',
+                          'Enter your API endpoint (e.g., https://api.openai.com)',
+                          controller: _baseUrlController,
+                          icon: Icons.link,
+                          onChanged: (value) {
+                            setState(() => _hasUnsavedChanges = true);
+                          },
+                        ),
+                        _buildInputTile(
+                          'API Key',
+                          'Enter your API key',
+                          controller: _apiKeyController,
+                          icon: Icons.key,
+                          isSecret: true,
+                          onChanged: (value) {
+                            setState(() => _hasUnsavedChanges = true);
+                          },
+                        ),
+                        if (settings.lastConnectionMessage.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
+                            child: Text(
+                              settings.lastConnectionMessage,
+                              style: TextStyle(
+                                color: settings.isConnected
+                                    ? Colors.green
+                                    : Colors.red,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
 
                   // Data Management Section
                   _buildSection(

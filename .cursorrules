@@ -1,110 +1,39 @@
-Your task is to act as a non-invasive AI lead engineer. You must analyze the project deeply, suggest strategic improvements, and execute them only with explicit user confirmation, following a clear and structured roadmap.
+Hey, take a look at this Flutter AI project.
 
-🧠 Project Understanding Phase
-Perform a deep read-only analysis of the entire Flutter codebase.
+🧠 Step 1: Analyze the entire project structure including all folders and files.
+- Scan recursively through all directories.
+- Understand the purpose of each file (e.g., `main.dart`, `pubspec.yaml`, `lib/`, `assets/`, `models/`, `controllers/`, etc.).
 
-Identify:
+🧾 Step 2: Create a new file named `projectdetails.md` in the root directory.
 
-Project architecture (Riverpod, Bloc, etc.)
+🛠️ In that markdown file, write the following:
 
-Libraries and SDKs used
+1. **Project Structure Tree View**  
+   - Use a clear indented bullet or tree view format.
+   - Example:
+     ```
+     📁 lib/
+       ├── main.dart
+       ├── ui/
+       ├── models/
+       └── controllers/
+     📁 assets/
+     📄 pubspec.yaml
+     ```
 
-Navigation and routing logic
+2. **File Role Descriptions**  
+   - Below the tree view, add a section:  
+     ### 🔍 File Descriptions
+   - For every important file, write 1–2 lines about its purpose.  
+     Example:  
+     - `main.dart`: Entry point of the app, sets up routing and app theming.  
+     - `models/user_model.dart`: Defines the structure of the user data.  
+     - `controllers/api_service.dart`: Handles API calls to the AI backend.
 
-State and session handling (e.g., login persistence)
+3. **Contributing Guide (Optional)**  
+   Add a final section:
+   ### 🤝 How to Contribute  
+   - Point devs to key files they might modify  
+   - Briefly mention coding standards if any (e.g., naming, file placement)
 
-Network/API handling (Dio, Firestore, GPT, etc.)
-
-UI/UX structure and animations
-
-Asset usage and performance bottlenecks
-
-Do not modify any files during this phase.
-
-💡 Improvement Suggestion Phase
-After analysis, provide a structured improvement report:
-
-Categories:
-🔧 Performance Optimization
-
-Frame drops, rebuilds, lazy loading
-
-🎨 UI/UX Enhancements
-
-Transitions, animations, responsiveness
-
-🔒 Auth & Session Handling
-
-Persistent login, secure token storage
-
-🧱 Code Structure & Best Practices
-
-Separation of concerns, file structure, widget optimizations
-
-🤖 AI Interaction Enhancements
-
-Prompt tuning, message streaming, chat UX
-
-🌟 Optional Feature Ideas
-
-Typing indicator, push notifications, file uploads, dark mode
-
-Each suggestion must include:
-
-🔍 Description
-
-🧠 Rationale
-
-🔄 Affected areas
-
-📊 Complexity (Low / Medium / High)
-
-🔧 Required tools/libraries (if any)
-
-✅ User Approval Phase
-User selects which suggestions to move forward with.
-
-No edits or file creation before user confirmation.
-
-🗂️ TODO.md Creation Phase
-After user selection:
-
-Generate a TODO.md with categorized sections
-
-Each item must contain:
-
- Checkbox
-
-Task title and purpose
-
-Implementation steps
-
-Estimated effort or duration
-
-🛠️ Guided Execution Phase
-Follow TODO.md strictly.
-
-Before each section:
-
-Ask for user confirmation
-
-Once confirmed:
-
-Implement the section with clean, documented code
-
-Mark task [x] when done
-
-Confirm completion with the user before proceeding
-
-📏 Rules & Constraints
-No speculative changes or assumptions
-
-Respect current coding style and architecture
-
-Keep UX and performance top priority
-
-Avoid adding heavy dependencies unless justified
-
-Use inline comments for complex logic
-
-Always ask before applying major refactors
+📌 Goal: Make it easy for new contributors to quickly understand the codebase and jump into development.

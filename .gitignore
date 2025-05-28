@@ -68,6 +68,9 @@ DerivedData/
 # Secrets
 ios/GoogleService-Info.plist
 android/app/google-services.json
+.env
+.env.*
+!.env.example
 
 # Logs & temporary
 *.log
@@ -75,3 +78,20 @@ android/app/google-services.json
 *.lock
 *.DS_Store
 Thumbs.db
+
+# Test and coverage
+coverage/
+.test_coverage.dart
+.test_runner.dart
+
+# Code generation artifacts
+*.g.dart
+*.freezed.dart
+*.mocks.dart
+
+# Additional IDE specific
+.atom/
+.buildlog/
+.project
+*.ipr
+*.iws

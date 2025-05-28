@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../services/ai_service.dart';
 import '../services/secure_storage_service.dart';
 
@@ -7,6 +6,7 @@ class SettingsState {
   final String baseUrl;
   final String apiKey;
   final String selectedModel;
+  final String modelType;
   final bool isConnected;
   final String lastConnectionMessage;
 
@@ -14,6 +14,7 @@ class SettingsState {
     this.baseUrl = '',
     this.apiKey = '',
     this.selectedModel = '',
+    this.modelType = 'openai',
     this.isConnected = false,
     this.lastConnectionMessage = '',
   });
@@ -22,6 +23,7 @@ class SettingsState {
     String? baseUrl,
     String? apiKey,
     String? selectedModel,
+    String? modelType,
     bool? isConnected,
     String? lastConnectionMessage,
   }) {
@@ -29,25 +31,25 @@ class SettingsState {
       baseUrl: baseUrl ?? this.baseUrl,
       apiKey: apiKey ?? this.apiKey,
       selectedModel: selectedModel ?? this.selectedModel,
+      modelType: modelType ?? this.modelType,
       isConnected: isConnected ?? this.isConnected,
       lastConnectionMessage:
           lastConnectionMessage ?? this.lastConnectionMessage,
     );
   }
+
+  // Check if using a Gemini model based on the stored model type
+  bool get isGeminiModel => modelType == 'gemini';
 }
 
 class SettingsNotifier extends StateNotifier<SettingsState> {
   SettingsNotifier() : super(SettingsState()) {
     _loadSettings();
   }
-
   AIService _aiService = AIService(baseUrl: '', apiKey: '');
 
-  // Add getter for AIService
+  // Getter for AIService
   AIService get aiService => _aiService;
-
-  static const String _selectedModelKey = 'selected_model';
-  static const String _isConnectedKey = 'is_connected';
 
   Future<void> _loadSettings() async {
     try {
@@ -58,19 +60,23 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
       final savedBaseUrl = await SecureStorageService.getBaseUrl() ?? '';
       final savedApiKey = await SecureStorageService.getApiKey() ?? '';
       final savedModel = await SecureStorageService.getSelectedModel() ?? '';
+      final savedModelType =
+          await SecureStorageService.getModelType() ?? 'openai';
       final isConnected = await SecureStorageService.getIsConnected();
 
       // Only update state if we have saved values
-      if (savedBaseUrl.isNotEmpty && savedApiKey.isNotEmpty) {
+      if ((savedBaseUrl.isNotEmpty && savedApiKey.isNotEmpty) ||
+          savedModelType == 'gemini') {
         state = state.copyWith(
           baseUrl: savedBaseUrl,
           apiKey: savedApiKey,
           selectedModel: savedModel,
+          modelType: savedModelType,
           isConnected: isConnected,
         );
 
         print(
-            'Loaded saved settings - BaseURL: $savedBaseUrl, Model: $savedModel');
+            'Loaded saved settings - BaseURL: $savedBaseUrl, Model: $savedModel, Type: $savedModelType');
         _updateAIService();
       }
     } catch (e) {
@@ -114,22 +120,51 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
       print('Error saving API key: $e');
     }
   }
-
-  Future<void> setSelectedModel(String model) async {
+  Future<void> setSelectedModel(String modelDisplayName) async {
     try {
-      await SecureStorageService.setSelectedModel(model);
-      await SecureStorageService.setIsConnected(true);
-      state = state.copyWith(
-        selectedModel: model,
-        isConnected: true,
+      // The modelDisplayName could be "alvandefault" or an actual model name.
+      // AIService's isGeminiModel handles the mapping internally
+      final isGemini = _aiService.isGeminiModel(modelDisplayName);
+      final modelType = isGemini ? 'gemini' : 'openai';
+
+      await SecureStorageService.setSelectedModel(modelDisplayName); // Save the display name
+      await SecureStorageService.setModelType(modelType);
+      
+      // Connection status for Gemini is typically assumed true if API key is present.
+      // For OpenAI, testConnection would verify.
+      bool isConnected = isGemini ? true : state.isConnected; // Preserve OpenAI connection status
+      if (isGemini) {
+         await SecureStorageService.setIsConnected(true);
+      }      state = state.copyWith(
+        selectedModel: modelDisplayName, // Store the name shown in UI
+        modelType: modelType,
+        isConnected: isConnected,
       );
-      print('Saved selected model: $model');
+      // Update AIService about the model change so it can set its internal _activeModelType
+      _aiService.setModelType(modelDisplayName); 
+
+      print('[SettingsNotifier VERBOSE] Saved selected model (display name): $modelDisplayName, Type: $modelType');
     } catch (e) {
-      print('Error saving selected model: $e');
+      print('[SettingsNotifier ERROR] Error saving selected model: $e');
     }
   }
 
   Future<(bool success, String message)> testConnection() async {
+    // AIService's testConnection now internally checks _activeModelType which is set by setModelType
+    // which in turn uses _getActualModelName and isGeminiModel.
+    // So, state.selectedModel (which is the display name) is fine here.
+    // The _aiService.isGeminiModel call inside testConnection will use the logic
+    // that correctly identifies "alvandefault" via _getActualModelName.    // If the selected model (display name) maps to a Gemini model
+    if (_aiService.isGeminiModel(state.selectedModel)) {
+      state = state.copyWith(
+        isConnected: true, // Assumed true for Gemini if key is okay (checked by AIService)
+        lastConnectionMessage: 'Using Gemini model (${state.selectedModel}). API key presence is the main check.',
+      );
+      // Optionally, AIService's testConnection could do a more specific Gemini check
+      return await _aiService.testConnection(); // Let AIService perform its Gemini check
+    }
+
+    // OpenAI connection test
     print(
         'Testing connection with baseUrl: ${state.baseUrl}, apiKey: ${state.apiKey}');
     try {
@@ -164,27 +199,20 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   }
 
   Future<List<String>> fetchAvailableModels() async {
-    if (state.baseUrl.isEmpty || state.apiKey.isEmpty) {
-      state = state.copyWith(
-        lastConnectionMessage: 'Base URL and API key are required',
-      );
-      return [];
+    // First refresh the Gemini models to get the latest list
+    await _aiService.refreshGeminiModels();
+
+    // Then fetch all available models (both Gemini and OpenAI)
+    final models = await _aiService.fetchAvailableModels();
+
+    // If models are found, check if we need to update the state
+    if (models.isNotEmpty && state.selectedModel.isEmpty) {
+      // Select a default model if one isn't already selected
+      final defaultModel = models.first;
+      await setSelectedModel(defaultModel);
     }
 
-    try {
-      final models = await _aiService.fetchAvailableModels();
-      if (models.isEmpty) {
-        state = state.copyWith(
-          lastConnectionMessage: 'No models found or error occurred',
-        );
-      }
-      return models;
-    } catch (e) {
-      state = state.copyWith(
-        lastConnectionMessage: 'Failed to fetch models: $e',
-      );
-      return [];
-    }
+    return models;
   }
 
   Future<void> clearAllData() async {

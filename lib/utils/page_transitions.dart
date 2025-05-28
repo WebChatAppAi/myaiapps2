@@ -20,7 +20,7 @@ class FadePageRoute<T> extends PageRoute<T> {
   bool get maintainState => true;
 
   @override
-  Duration get transitionDuration => const Duration(milliseconds: 300);
+  Duration get transitionDuration => const Duration(milliseconds: 400);
 
   @override
   Widget buildPage(
@@ -29,18 +29,21 @@ class FadePageRoute<T> extends PageRoute<T> {
     Animation<double> secondaryAnimation,
   ) {
     return FadeTransition(
-      opacity: animation,
+      opacity: CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+      ),
       child: page,
     );
   }
 }
 
-/// Slide transition that slides from right to left (standard navigation)
-class SlidePageRoute<T> extends PageRoute<T> {
+/// Enhanced slide transition with scale and fade effects
+class EnhancedSlidePageRoute<T> extends PageRoute<T> {
   final Widget page;
   final RouteSettings settings;
 
-  SlidePageRoute({
+  EnhancedSlidePageRoute({
     required this.page,
     required this.settings,
   }) : super(settings: settings);
@@ -55,7 +58,7 @@ class SlidePageRoute<T> extends PageRoute<T> {
   bool get maintainState => true;
 
   @override
-  Duration get transitionDuration => const Duration(milliseconds: 300);
+  Duration get transitionDuration => const Duration(milliseconds: 400);
 
   @override
   Widget buildPage(
@@ -63,25 +66,45 @@ class SlidePageRoute<T> extends PageRoute<T> {
     Animation<double> animation,
     Animation<double> secondaryAnimation,
   ) {
-    var begin = const Offset(1.0, 0.0);
-    var end = Offset.zero;
-    var curve = Curves.easeInOutCubic;
-    var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-    var offsetAnimation = animation.drive(tween);
+    final curvedAnimation = CurvedAnimation(
+      parent: animation,
+      curve: Curves.easeOutCubic,
+    );
 
-    return SlideTransition(
-      position: offsetAnimation,
-      child: page,
+    final slideAnimation = Tween<Offset>(
+      begin: const Offset(1.0, 0.0),
+      end: Offset.zero,
+    ).animate(curvedAnimation);
+
+    final scaleAnimation = Tween<double>(
+      begin: 0.95,
+      end: 1.0,
+    ).animate(curvedAnimation);
+
+    final fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(curvedAnimation);
+
+    return FadeTransition(
+      opacity: fadeAnimation,
+      child: SlideTransition(
+        position: slideAnimation,
+        child: ScaleTransition(
+          scale: scaleAnimation,
+          child: page,
+        ),
+      ),
     );
   }
 }
 
-/// Scale transition for modal dialogs and popups
-class ScalePageRoute<T> extends PageRoute<T> {
+/// Enhanced scale transition for modal dialogs and popups
+class EnhancedScalePageRoute<T> extends PageRoute<T> {
   final Widget page;
   final RouteSettings settings;
 
-  ScalePageRoute({
+  EnhancedScalePageRoute({
     required this.page,
     required this.settings,
   }) : super(settings: settings);
@@ -96,7 +119,7 @@ class ScalePageRoute<T> extends PageRoute<T> {
   bool get maintainState => true;
 
   @override
-  Duration get transitionDuration => const Duration(milliseconds: 300);
+  Duration get transitionDuration => const Duration(milliseconds: 400);
 
   @override
   Widget buildPage(
@@ -104,19 +127,20 @@ class ScalePageRoute<T> extends PageRoute<T> {
     Animation<double> animation,
     Animation<double> secondaryAnimation,
   ) {
-    var scaleAnimation = Tween<double>(begin: 0.9, end: 1.0).animate(
-      CurvedAnimation(
-        parent: animation,
-        curve: Curves.easeOutCubic,
-      ),
+    final curvedAnimation = CurvedAnimation(
+      parent: animation,
+      curve: Curves.easeOutCubic,
     );
 
-    var fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: animation,
-        curve: Curves.easeOut,
-      ),
-    );
+    final scaleAnimation = Tween<double>(
+      begin: 0.95,
+      end: 1.0,
+    ).animate(curvedAnimation);
+
+    final fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(curvedAnimation);
 
     return FadeTransition(
       opacity: fadeAnimation,
@@ -130,10 +154,10 @@ class ScalePageRoute<T> extends PageRoute<T> {
 
 /// Helper class to navigate with custom transitions
 class AppNavigator {
-  /// Navigate to a page with slide transition
+  /// Navigate to a page with enhanced slide transition
   static Future<T?> push<T>(BuildContext context, Widget page) {
     return Navigator.of(context).push(
-      SlidePageRoute<T>(
+      EnhancedSlidePageRoute<T>(
         page: page,
         settings: RouteSettings(name: page.runtimeType.toString()),
       ),
@@ -150,13 +174,28 @@ class AppNavigator {
     );
   }
 
-  /// Show a modal page with scale and fade transition
+  /// Show a modal page with enhanced scale and fade transition
   static Future<T?> pushModal<T>(BuildContext context, Widget page) {
     return Navigator.of(context).push(
-      ScalePageRoute<T>(
+      EnhancedScalePageRoute<T>(
         page: page,
         settings: RouteSettings(name: page.runtimeType.toString()),
       ),
     );
+  }
+
+  /// Replace current page with enhanced slide transition
+  static Future<T?> pushReplacement<T>(BuildContext context, Widget page) {
+    return Navigator.of(context).pushReplacement(
+      EnhancedSlidePageRoute<T>(
+        page: page,
+        settings: RouteSettings(name: page.runtimeType.toString()),
+      ),
+    );
+  }
+
+  /// Pop current page with enhanced slide transition
+  static void pop<T>(BuildContext context, [T? result]) {
+    Navigator.of(context).pop(result);
   }
 }
